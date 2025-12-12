@@ -23,7 +23,11 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
 
     **PHASE 2: COMPREHENSIVE ANALYSIS**
     If found (or if you can infer functionality from a generic name like "postgres-mcp"):
-    1. **Security Risk Score**: Calculate a score (0-100). Deduct for missing auth, weak validation, etc.
+    1. **Trust Score**: Calculate a "Trust Score" (0-100) where 100 is PERFECTLY SECURE and 0 is CRITICALLY VULNERABLE.
+       - Score > 80: High Trust (Low Risk)
+       - Score 60-79: Medium Trust (Medium Risk)
+       - Score 40-59: Low Trust (High Risk)
+       - Score < 40: Untrusted (Critical Risk)
     2. **Vulnerabilities**: Identify potential CVEs (use real IDs if applicable to dependencies found, or realistic placeholders like CVE-2024-XXXX for hypothetical flaws).
     3. **Compliance**: Check against GDPR (data handling), SOX (logging), HIPAA (PHI), ISO 27001 (access control).
     4. **Financial**: Estimate costs for Implementation (setup, dev hours), Maintenance (hosting, patching), and ROI (efficiency gains).
@@ -35,8 +39,8 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
     {
       "scanStatus": "SUCCESS" | "NOT_FOUND" | "PARTIAL",
       "suggestedAlternatives": ["string", "string"] (Only if NOT_FOUND, e.g. "postgres-mcp", "filesystem-server"),
-      "riskScore": number (0-100),
-      "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+      "riskScore": number (0-100, this is the Trust Score, 100 is best),
+      "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (Inverse of score: High Score = LOW Risk),
       "summary": "Detailed executive summary...",
       "authAssessment": {
         "score": number (0-100),

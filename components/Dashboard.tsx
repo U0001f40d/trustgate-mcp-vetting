@@ -75,10 +75,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
     { name: 'Low', value: report.vulnerabilities.filter(v => v.severity === 'LOW').length },
   ].filter(d => d.value > 0);
 
+  // Derive risk level from score to ensure consistency if LLM mismatches
+  const deriveRiskLevel = (score: number) => {
+      if (score >= 80) return 'LOW';
+      if (score >= 60) return 'MEDIUM';
+      if (score >= 40) return 'HIGH';
+      return 'CRITICAL';
+  };
+
+  const riskLevel = deriveRiskLevel(report.riskScore);
+
   const getScoreColor = (score: number) => {
-      if (score > 80) return 'text-green-500';
-      if (score > 60) return 'text-yellow-500';
-      if (score > 40) return 'text-orange-500';
+      if (score >= 80) return 'text-green-500';
+      if (score >= 60) return 'text-yellow-500';
+      if (score >= 40) return 'text-orange-500';
       return 'text-red-500';
   };
 
@@ -123,12 +133,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
                     </div>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wide ${
-                    report.riskLevel === 'CRITICAL' ? 'bg-red-900/20 text-red-400 border-red-500/30' :
-                    report.riskLevel === 'HIGH' ? 'bg-orange-900/20 text-orange-400 border-orange-500/30' :
-                    report.riskLevel === 'MEDIUM' ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' :
+                    riskLevel === 'CRITICAL' ? 'bg-red-900/20 text-red-400 border-red-500/30' :
+                    riskLevel === 'HIGH' ? 'bg-orange-900/20 text-orange-400 border-orange-500/30' :
+                    riskLevel === 'MEDIUM' ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' :
                     'bg-green-900/20 text-green-400 border-green-500/30'
                 }`}>
-                    {report.riskLevel}
+                    {riskLevel} RISK
                 </div>
             </div>
 
@@ -137,25 +147,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
                     label="CRITICAL" 
                     color="bg-red-500" 
                     desc="Unsafe. Immediate remediation required." 
-                    isActive={report.riskScore <= 40} 
+                    isActive={riskLevel === 'CRITICAL'} 
                 />
                 <RiskLegendItem 
                     label="HIGH" 
                     color="bg-orange-500" 
                     desc="Significant risks. Executive sign-off needed." 
-                    isActive={report.riskScore > 40 && report.riskScore <= 60}
+                    isActive={riskLevel === 'HIGH'}
                 />
                 <RiskLegendItem 
                     label="MEDIUM" 
                     color="bg-yellow-500" 
                     desc="Acceptable with specific controls." 
-                    isActive={report.riskScore > 60 && report.riskScore <= 80}
+                    isActive={riskLevel === 'MEDIUM'}
                 />
                 <RiskLegendItem 
                     label="LOW" 
                     color="bg-green-500" 
                     desc="Safe for production use." 
-                    isActive={report.riskScore > 80}
+                    isActive={riskLevel === 'LOW'}
                 />
             </div>
         </div>
