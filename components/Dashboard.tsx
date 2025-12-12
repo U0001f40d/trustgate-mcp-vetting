@@ -3,7 +3,7 @@ import { SecurityReport } from '../types';
 import { 
   Shield, AlertTriangle, CheckCircle, XCircle, 
   DollarSign, TrendingUp, Activity, Lock,
-  FileText, ExternalLink, Globe, ShieldCheck, Loader
+  FileText, ExternalLink, Globe, ShieldCheck, Loader, Info
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -41,24 +41,18 @@ const MetricCard: React.FC<{ title: string; value: string | number; sub?: string
   </div>
 );
 
-const RiskGauge: React.FC<{ score: number }> = ({ score }) => {
-  const percentage = score;
-  const color = score > 80 ? 'text-green-500' : score > 60 ? 'text-yellow-500' : 'text-red-500';
-  const strokeColor = score > 80 ? '#22c55e' : score > 60 ? '#eab308' : '#ef4444';
-
-  return (
-    <div className="relative flex items-center justify-center w-40 h-40">
-       <svg className="transform -rotate-90 w-36 h-36">
-        <circle cx="72" cy="72" r="65" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-slate-700" />
-        <circle cx="72" cy="72" r="65" stroke={strokeColor} strokeWidth="10" fill="transparent" strokeDasharray={408} strokeDashoffset={408 - (408 * percentage) / 100} className="transition-all duration-1000 ease-out" />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-4xl font-bold ${color}`}>{score}</span>
-        <span className="text-slate-500 text-xs uppercase font-semibold mt-1">Trust Score</span>
-      </div>
+const RiskLegendItem: React.FC<{ label: string; color: string; desc: string; isActive: boolean }> = ({ label, color, desc, isActive }) => (
+  <div className="group relative flex-1 flex flex-col items-center">
+    <div 
+        className={`h-1.5 w-full rounded-full transition-all duration-300 ${isActive ? color : 'bg-slate-700'} group-hover:bg-opacity-80 cursor-help`}
+    />
+    {/* Tooltip */}
+    <div className="absolute top-4 left-1/2 -translate-x-1/2 w-32 p-2 bg-slate-900 border border-slate-700 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 text-center">
+       <div className={`text-[10px] font-bold mb-1 ${color.replace('bg-', 'text-')}`}>{label}</div>
+       <div className="text-[9px] text-slate-400 leading-tight">{desc}</div>
     </div>
-  );
-};
+  </div>
+);
 
 export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerateDeepDive, isGeneratingDeepDive }) => {
   const costData = [
@@ -80,6 +74,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
     { name: 'Medium', value: report.vulnerabilities.filter(v => v.severity === 'MEDIUM').length },
     { name: 'Low', value: report.vulnerabilities.filter(v => v.severity === 'LOW').length },
   ].filter(d => d.value > 0);
+
+  const getScoreColor = (score: number) => {
+      if (score > 80) return 'text-green-500';
+      if (score > 60) return 'text-yellow-500';
+      if (score > 40) return 'text-orange-500';
+      return 'text-red-500';
+  };
 
   return (
     <div className="animate-fade-in pb-12">
@@ -108,14 +109,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
 
       {/* Top Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center justify-between">
-            <div>
-                <h3 className="text-slate-400 text-sm font-medium uppercase mb-1">Overall Risk Level</h3>
-                <div className={`text-2xl font-bold tracking-tight ${report.riskLevel === 'CRITICAL' ? 'text-red-500' : report.riskLevel === 'HIGH' ? 'text-orange-500' : 'text-green-500'}`}>
+        
+        {/* New Risk Card */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col justify-between relative shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h3 className="text-slate-400 text-sm font-medium uppercase mb-2">Overall Trust Score</h3>
+                    <div className="flex items-baseline gap-1">
+                        <span className={`text-5xl font-bold tracking-tight ${getScoreColor(report.riskScore)}`}>
+                            {report.riskScore}
+                        </span>
+                        <span className="text-slate-600 font-medium">/100</span>
+                    </div>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wide ${
+                    report.riskLevel === 'CRITICAL' ? 'bg-red-900/20 text-red-400 border-red-500/30' :
+                    report.riskLevel === 'HIGH' ? 'bg-orange-900/20 text-orange-400 border-orange-500/30' :
+                    report.riskLevel === 'MEDIUM' ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' :
+                    'bg-green-900/20 text-green-400 border-green-500/30'
+                }`}>
                     {report.riskLevel}
                 </div>
             </div>
-            <RiskGauge score={report.riskScore} />
+
+            <div className="flex gap-1.5 mt-6 pt-4 border-t border-slate-700/50">
+                <RiskLegendItem 
+                    label="CRITICAL" 
+                    color="bg-red-500" 
+                    desc="Unsafe. Immediate remediation required." 
+                    isActive={report.riskScore <= 40} 
+                />
+                <RiskLegendItem 
+                    label="HIGH" 
+                    color="bg-orange-500" 
+                    desc="Significant risks. Executive sign-off needed." 
+                    isActive={report.riskScore > 40 && report.riskScore <= 60}
+                />
+                <RiskLegendItem 
+                    label="MEDIUM" 
+                    color="bg-yellow-500" 
+                    desc="Acceptable with specific controls." 
+                    isActive={report.riskScore > 60 && report.riskScore <= 80}
+                />
+                <RiskLegendItem 
+                    label="LOW" 
+                    color="bg-green-500" 
+                    desc="Safe for production use." 
+                    isActive={report.riskScore > 80}
+                />
+            </div>
         </div>
 
         <MetricCard 

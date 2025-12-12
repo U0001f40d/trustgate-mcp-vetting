@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Search, ArrowRight, LayoutDashboard, Terminal, AlertTriangle, RefreshCw, HelpCircle, Play, Sparkles } from 'lucide-react';
+import { Shield, Search, ArrowRight, LayoutDashboard, Terminal, AlertTriangle, RefreshCw, HelpCircle, Play, Sparkles, Github, FileText } from 'lucide-react';
 import { analyzeMCPServer, generateDeepDiveReport } from './services/geminiService';
 import { SecurityReport, TechnicalDeepDiveData } from './types';
 import { ScanningOverlay } from './components/ScanningOverlay';
@@ -234,7 +234,7 @@ const App: React.FC = () => {
 
             {/* Footer Stats */}
             {!errorType && (
-                <div className="grid grid-cols-3 gap-8 text-slate-500 text-sm border-t border-slate-800 pt-8">
+                <div className="grid grid-cols-3 gap-8 text-slate-500 text-sm border-t border-slate-800 pt-8 mb-8">
                 <div className="flex flex-col items-center gap-2">
                     <span className="font-semibold text-slate-300">ISO 27001</span>
                     <span>Compliance Checks</span>
@@ -249,6 +249,21 @@ const App: React.FC = () => {
                 </div>
                 </div>
             )}
+
+            {/* License & Open Source Footer */}
+            <div className="flex items-center justify-center gap-6 text-xs text-slate-600 font-mono">
+              <span className="flex items-center gap-1.5">
+                <Github className="w-3 h-3" />
+                <span>Open Source</span>
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1.5">
+                <FileText className="w-3 h-3" />
+                <span>MIT License</span>
+              </span>
+              <span>•</span>
+              <span>© 2024 TrustGate</span>
+            </div>
           </div>
         </div>
       )}

@@ -1,20 +1,19 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# TrustGate
 
-# Run and deploy your AI Studio app
+TrustGate is an enterprise-grade security vetting and analysis tool for Model Context Protocol (MCP) servers. It provides comprehensive risk analysis, compliance auditing (GDPR, HIPAA, ISO 27001), and ROI projections for integrating MCP tools into enterprise environments.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1p11XwmNK9Xh-bhjTyJi2i5PdOh-dTlZc
+- **Security Risk Scoring**: Automated 0-100 risk assessment.
+- **Vulnerability Detection**: Identifies potential CVEs and security flaws.
+- **Compliance Auditing**: Checks against major standards.
+- **Technical Deep Dive**: Simulated static analysis of MCP tools and capabilities.
+- **Cost & ROI Analysis**: Financial projections for implementation.
 
-## Run Locally
+## License
 
-**Prerequisites:**  Node.js
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Open Source
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+TrustGate is open source software. Contributions are welcome.
