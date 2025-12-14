@@ -23,11 +23,19 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
 
     **PHASE 2: COMPREHENSIVE ANALYSIS**
     If found (or if you can infer functionality from a generic name like "postgres-mcp"):
-    1. **Trust Score**: Calculate a "Trust Score" (0-100) where 100 is PERFECTLY SECURE and 0 is CRITICALLY VULNERABLE.
+    1. **Trust Score Calculation (Strict Rubric)**: Start with 100. Deduct points based on the following rules:
+       - **CRITICAL Vulnerabilities (-30 pts)**: RCE, Arbitrary File Write, SQL Injection possibilities.
+       - **HIGH Vulnerabilities (-15 pts)**: Unrestricted File Read, Missing Auth, Sensitive Data Exposure.
+       - **MEDIUM Vulnerabilities (-5 pts)**: Missing best practices, minor config issues.
+       - **Compliance Gaps (-10 pts)**: No GDPR/HIPAA considerations if applicable.
+       - **Maintenance (-10 pts)**: Abandoned repo or no documentation.
+       
+       *Map the final score to Risk Level:*
        - Score > 80: High Trust (Low Risk)
        - Score 60-79: Medium Trust (Medium Risk)
        - Score 40-59: Low Trust (High Risk)
        - Score < 40: Untrusted (Critical Risk)
+
     2. **Vulnerabilities**: Identify potential CVEs (use real IDs if applicable to dependencies found, or realistic placeholders like CVE-2024-XXXX for hypothetical flaws).
     3. **Compliance**: Check against GDPR (data handling), SOX (logging), HIPAA (PHI), ISO 27001 (access control).
     4. **Financial**: Estimate costs for Implementation (setup, dev hours), Maintenance (hosting, patching), and ROI (efficiency gains).
@@ -75,6 +83,8 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
+        temperature: 0, // Force determinism
+        seed: 1337,     // Consistent seed
       },
     });
 
@@ -224,6 +234,8 @@ export const generateDeepDiveReport = async (name: string, url: string, summary:
       contents: prompt,
       config: {
         responseMimeType: "application/json",
+        temperature: 0, // Force determinism
+        seed: 1337,     // Consistent seed
       }
     });
 
