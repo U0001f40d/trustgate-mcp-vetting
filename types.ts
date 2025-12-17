@@ -101,6 +101,8 @@ export interface IntegrationGuide {
 }
 
 export interface TechnicalDeepDiveData {
+  technicalSummary: string;
+  architectureOverview: string;
   tools: MCPTool[];
   codeSecurity: CodeSecurityReview;
   dependencies: DependencyRisk[];

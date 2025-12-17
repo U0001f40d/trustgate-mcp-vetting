@@ -1,10 +1,10 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { SecurityReport, TechnicalDeepDiveData } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeMCPServer = async (name: string, url: string): Promise<SecurityReport> => {
-  // Using Gemini 3 Pro for complex reasoning and analysis
   const model = "gemini-3-pro-preview";
 
   const prompt = `
@@ -22,45 +22,32 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
     - **CRITICAL**: If you definitively cannot find any information about an MCP server with this name or URL (it doesn't exist or is a private internal tool with no public footprint), set "scanStatus" to "NOT_FOUND".
 
     **PHASE 2: COMPREHENSIVE ANALYSIS**
-    If found (or if you can infer functionality from a generic name like "postgres-mcp"):
-    1. **Trust Score Calculation (Strict Rubric)**: Start with 100. Deduct points based on the following rules:
-       - **CRITICAL Vulnerabilities (-30 pts)**: RCE, Arbitrary File Write, SQL Injection possibilities.
-       - **HIGH Vulnerabilities (-15 pts)**: Unrestricted File Read, Missing Auth, Sensitive Data Exposure.
-       - **MEDIUM Vulnerabilities (-5 pts)**: Missing best practices, minor config issues.
-       - **Compliance Gaps (-10 pts)**: No GDPR/HIPAA considerations if applicable.
-       - **Maintenance (-10 pts)**: Abandoned repo or no documentation.
-       
-       *Map the final score to Risk Level:*
-       - Score > 80: High Trust (Low Risk)
-       - Score 60-79: Medium Trust (Medium Risk)
-       - Score 40-59: Low Trust (High Risk)
-       - Score < 40: Untrusted (Critical Risk)
-
-    2. **Vulnerabilities**: Identify potential CVEs (use real IDs if applicable to dependencies found, or realistic placeholders like CVE-2024-XXXX for hypothetical flaws).
-    3. **Compliance**: Check against GDPR (data handling), SOX (logging), HIPAA (PHI), ISO 27001 (access control).
-    4. **Financial**: Estimate costs for Implementation (setup, dev hours), Maintenance (hosting, patching), and ROI (efficiency gains).
+    If found:
+    1. **Trust Score Calculation**: Start at 100. Deduct for vulnerabilities, compliance gaps, and maintenance issues.
+    2. **Vulnerabilities**: Identify potential CVEs (use real IDs if applicable to dependencies found).
+    3. **Compliance**: Check against GDPR, SOX, HIPAA, ISO 27001.
+    4. **Financial**: Estimate costs for Implementation, Maintenance, and ROI.
 
     **PHASE 3: OUTPUT**
     Return a **SINGLE JSON OBJECT**. Do not use markdown blocks.
     Structure:
-
     {
       "scanStatus": "SUCCESS" | "NOT_FOUND" | "PARTIAL",
-      "suggestedAlternatives": ["string", "string"] (Only if NOT_FOUND, e.g. "postgres-mcp", "filesystem-server"),
-      "riskScore": number (0-100, this is the Trust Score, 100 is best),
-      "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (Inverse of score: High Score = LOW Risk),
-      "summary": "Detailed executive summary...",
+      "suggestedAlternatives": ["string"],
+      "riskScore": number,
+      "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+      "summary": "string",
       "authAssessment": {
-        "score": number (0-100),
-        "details": "Assessment...",
+        "score": number,
+        "details": "string",
         "strengths": ["string"],
         "weaknesses": ["string"]
       },
       "vulnerabilities": [
-        { "cveId": "string", "severity": "LOW"|"MEDIUM"|"HIGH"|"CRITICAL", "description": "string", "remediation": "string" }
+        { "cveId": "string", "severity": "string", "description": "string", "remediation": "string" }
       ],
       "compliance": [
-        { "name": "GDPR"|"SOX"|"HIPAA"|"ISO 27001", "status": "COMPLIANT"|"NON_COMPLIANT"|"PARTIAL"|"NOT_APPLICABLE", "details": "string" }
+        { "name": "string", "status": "string", "details": "string" }
       ],
       "costAnalysis": {
         "implementation": number,
@@ -83,15 +70,12 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        temperature: 0, // Force determinism
-        seed: 1337,     // Consistent seed
+        temperature: 0,
+        seed: 1337,
       },
     });
 
-    // Extract text
     const text = response.text || "";
-    
-    // Parse JSON (handle potential markdown code blocks)
     let jsonString = text;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -100,7 +84,6 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
 
     const data = JSON.parse(jsonString);
 
-    // If NOT_FOUND, we might return minimal data structure to satisfy types, but App.tsx will check scanStatus
     if (data.scanStatus === 'NOT_FOUND') {
         return {
             targetName: name,
@@ -108,7 +91,6 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
             scanDate: new Date().toISOString(),
             scanStatus: 'NOT_FOUND',
             suggestedAlternatives: data.suggestedAlternatives || ['filesystem', 'postgres', 'github', 'slack'],
-            // Fill required fields with dummies as they won't be shown
             riskScore: 0,
             riskLevel: 'LOW',
             summary: 'Server not found',
@@ -120,24 +102,18 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
         };
     }
 
-    // Extract sources from grounding metadata
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map((chunk) => chunk.web?.uri)
       .filter((uri): uri is string => !!uri) || [];
-
-    // Deduplicate sources
-    const uniqueSources = [...new Set(sources)];
 
     return {
       targetName: name,
       targetUrl: url,
       scanDate: new Date().toISOString(),
       ...data,
-      sources: uniqueSources
+      sources: [...new Set(sources)]
     };
   } catch (error) {
-    console.error("Analysis failed:", error);
-    // Throw a specific error object if possible, or just string
     throw new Error("API_ERROR");
   }
 };
@@ -145,59 +121,52 @@ export const analyzeMCPServer = async (name: string, url: string): Promise<Secur
 export const generateDeepDiveReport = async (name: string, url: string, summary: string): Promise<TechnicalDeepDiveData> => {
   const model = "gemini-3-pro-preview";
   const prompt = `
-    You are a Senior Security Engineer specializing in Model Context Protocol (MCP) servers. 
-    Generate a **Technical Deep-Dive Report** for the following MCP server:
+    You are a Lead Security Architect performing an EXHAUSTIVE technical audit of this MCP server:
     
-    Target Name: ${name}
-    Target URL: ${url}
-    Context: ${summary}
+    Target: ${name}
+    Executive Context: ${summary}
 
-    **CORE OBJECTIVE: SOURCE CODE SIMULATION & TOOL ANALYSIS**
-    Simulate a static analysis of the server's source code. You must identify specific tools and analyze them with extreme technical depth.
-    
-    **COVERAGE & LIMITATIONS**:
-    - If you cannot access the exact source code, perform a "SIMULATED" analysis based on standard implementations of this tool type.
-    - Clearly mark this in the output fields.
-    - List what could not be verified (e.g., "Exact line numbers unavailable", "Proprietary auth logic unknown").
+    **CORE REQUIREMENT: COMPREHENSIVE TOOL INVENTORY**
+    You MUST identify and analyze EVERY single tool, function, and sub-utility exposed by this server. 
+    For an enterprise-grade MCP server, provide a list of 10-15 distinct technical capabilities. 
+    If the server is specialized, break down its operations into granular steps (e.g., Read, Write, List, Stat, Search).
 
-    **ANALYSIS STANDARDS (Example: Filesystem Server):**
-    If analyzing a filesystem server, you would output:
-    - **read_file**: HIGH RISK. Parameter: \`path\`. Risk: Arbitrary file read (/etc/passwd). Control: Sandbox to /cwd.
-    - **write_file**: CRITICAL RISK. Parameter: \`path, content\`. Risk: RCE via overwriting configs. Control: Read-only mode.
-    - **list_directory**: MEDIUM RISK. Parameter: \`path\`. Risk: Reconnaissance. Control: Hide dotfiles.
-    - **delete_file**: CRITICAL RISK. Parameter: \`path\`. Risk: Destructive data loss. Control: Confirmation + Backup.
+    **For each tool, provide:**
+    - Detailed Technical Blast Radius analysis.
+    - Specific attack vectors (e.g., Injection, SSRF, Path Traversal).
+    - Code-level security controls and a secure TypeScript implementation example.
 
-    **INSTRUCTIONS FOR TARGET (${name}):**
-    1. **Identify Tools**: Infer likely tools based on the server type (e.g., for a Postgres server: query_read, query_write, list_tables).
-    2. **Deep Analysis per Tool**:
-       - **Signature**: Exact function signature (e.g., \`tool_name(param: type)\`).
-       - **Data Scope**: What exact resources are touched? (Files, URLs, Tables).
-       - **Validation**: Does it look like it validates input? (Assume 'No' if unknown for safety).
-       - **Blast Radius**: Worst-case scenario of abuse (e.g. "Full database dump", "RCE").
-       - **Mitigation**: Specific code-level fixes (e.g. "Use parameterized queries", "Chroot environment").
+    **Structure the report as follows:**
+    1. **Technical Summary**: A high-level architectural risk assessment (200 words).
+    2. **Architecture Overview**: Describe the internal flow of data from LLM to System Resource.
+    3. **Inventory**: The complete list of 10-15 tools with deep technical specs.
+    4. **Code Security**: Audit of Input Validation, Auth, Error Handling, Logging, Rate Limiting, Sanitization.
+    5. **Dependency Graph**: Direct and transitive dependencies with security status.
+    6. **Integration Guide**: Specific policies for Access Control and Secure Configuration.
 
-    Generate a SINGLE JSON OBJECT matching the following structure exactly. Do not use markdown code blocks.
-    
-    Structure:
+    Return a SINGLE JSON OBJECT matching the structure below. No markdown blocks.
+
     {
-      "analysisCoverage": "FULL" | "PARTIAL" | "SIMULATED",
-      "limitations": ["string (e.g. Source code private, simulated based on public docs)"],
+      "technicalSummary": "string",
+      "architectureOverview": "string",
+      "analysisCoverage": "FULL",
+      "limitations": ["string"],
       "tools": [
         {
-          "name": "string (Tool Name, e.g. read_file)",
-          "signature": "string (e.g. read_file(path: string))",
-          "description": "string (Concise security summary)",
+          "name": "string",
+          "signature": "string",
+          "description": "string",
           "riskLevel": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
-          "dataScope": "string (e.g. Host Filesystem - Read/Write)",
-          "permissions": ["string (e.g. fs.read)"],
+          "dataScope": "string",
+          "permissions": ["string"],
           "details": {
-            "technicalDescription": "string (Detailed technical breakdown including BLAST RADIUS assessment)",
-            "inputValidation": "string (Assessment of likely validation logic)",
+            "technicalDescription": "string",
+            "inputValidation": "string",
             "outputFormat": "string",
             "systemResources": ["string"],
-            "attackVectors": ["string (e.g. Path Traversal)", "string (e.g. RCE)"],
-            "securityControls": ["string (e.g. Restrict path to ./workspace)", "string (e.g. Input sanitization)"],
-            "codeExample": "string (Secure implementation snippet in TypeScript)"
+            "attackVectors": ["string"],
+            "securityControls": ["string"],
+            "codeExample": "string"
           }
         }
       ],
@@ -213,17 +182,17 @@ export const generateDeepDiveReport = async (name: string, url: string, summary:
         {
           "name": "string",
           "version": "string",
-          "status": "SECURE" | "VULNERABLE" | "OUTDATED",
+          "status": "SECURE" | "VULNERABLE",
           "riskDescription": "string",
           "transitiveRisks": ["string"],
           "recommendation": "string"
         }
       ],
       "integration": {
-        "accessControlPolicy": "string (YAML/JSON example)",
+        "accessControlPolicy": "string",
         "networkSegmentation": "string",
         "monitoringSetup": "string",
-        "secureConfig": "string (JSON/YAML example)"
+        "secureConfig": "string"
       }
     }
   `;
@@ -234,8 +203,8 @@ export const generateDeepDiveReport = async (name: string, url: string, summary:
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        temperature: 0, // Force determinism
-        seed: 1337,     // Consistent seed
+        temperature: 0.1,
+        seed: 42,
       }
     });
 
@@ -248,7 +217,6 @@ export const generateDeepDiveReport = async (name: string, url: string, summary:
     
     return JSON.parse(jsonString) as TechnicalDeepDiveData;
   } catch (error) {
-    console.error("Deep dive generation failed:", error);
     throw new Error("Failed to generate deep dive report.");
   }
 };
