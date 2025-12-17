@@ -15,10 +15,10 @@ TrustGate solves this by automating the audit process. Users input an MCP server
 The result is an interactive dashboard offering both an Executive View for stakeholders and a Technical View for security engineers, turning weeks of manual vetting into a 30-second automated scan.
 
 ### Video Demo
-[Insert Public Video Link Here - e.g. YouTube/Loom]
+https://youtu.be/yDYxTpIMER0
 
 ### Public AI Studio App Link
-[Insert Your Published AI Studio App Link Here]
+https://ai.studio/apps/drive/1p11XwmNK9Xh-bhjTyJi2i5PdOh-dTlZc?fullscreenApplet=true
 
 ### How I Built It
 I built TrustGate using **Google AI Studio** to prototype and refine the prompts, specifically targeting the `gemini-3-pro-preview` model for its superior reasoning and context handling capabilities. 
@@ -29,6 +29,7 @@ Key technical implementation details:
 *   **Structured Output**: I used specific JSON schemas in the system instructions to ensure Gemini returns data that can be directly visualized in charts and metric cards.
 *   **Tool Use (Grounding)**: The `googleSearch` tool is enabled to allow the model to fetch real-time information about existing MCP servers from GitHub and NPM, ensuring the reports are grounded in reality rather than hallucinated.
 *   **Reasoning Simulation**: For the "Technical Deep Dive," I prompted the model to simulate a static code analysis, inferring likely tool definitions and security controls based on the server's description and documentation.
+*   **Determinism**: To ensure reliable enterprise reports, the model is configured with a temperature of 0 and a fixed seed, providing consistent scoring across multiple scans of the same resource.
 
 ### The Impact
 The Model Context Protocol is setting the standard for how AI agents interact with systems. However, a single malicious or poorly configured server can compromise an entire organization's data. TrustGate empowers developers and security teams to evaluate these tools instantly. By providing transparent risk scoring and actionable remediation advice, TrustGate fosters a safer open-source ecosystem and removes the "security paralysis" preventing enterprises from adopting powerful new MCP tools.
