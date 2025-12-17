@@ -41,6 +41,84 @@
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
       }
+
+      /* High-Fidelity PDF Export Styles */
+      @media print {
+        @page {
+          margin: 1.5cm;
+          size: A4;
+        }
+        
+        body {
+          background: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        /* Hide interactive elements and UI chrome */
+        nav, 
+        button, 
+        .no-print,
+        [role="button"],
+        .recharts-legend-wrapper,
+        .recharts-tooltip-wrapper {
+          display: none !important;
+        }
+
+        /* Ensure containers expand for print */
+        .max-w-7xl {
+          max-width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        /* Adjust colors for white background */
+        .bg-slate-900, .bg-slate-950, .bg-slate-800, .bg-[#0f172a], .bg-[#161b22], .bg-slate-850 {
+          background-color: transparent !important;
+          color: black !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        .text-white, .text-slate-300, .text-slate-400, .text-slate-500 {
+          color: black !important;
+        }
+
+        .border-slate-700, .border-slate-800, .border-slate-600 {
+          border-color: #cbd5e1 !important;
+          border-width: 1px !important;
+        }
+
+        .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm {
+          shadow: none !important;
+          box-shadow: none !important;
+        }
+
+        /* Ensure text is readable */
+        p, span, h1, h2, h3, h4 {
+          color: black !important;
+        }
+
+        /* Force page breaks for logical sections */
+        .grid {
+          display: block !important;
+        }
+        
+        .grid > div {
+          margin-bottom: 2rem !important;
+          page-break-inside: avoid !important;
+        }
+
+        /* Keep charts visible by disabling dark-mode filters */
+        .recharts-wrapper {
+          filter: brightness(0.8) contrast(1.2) !important;
+        }
+        
+        section, .report-section {
+          page-break-inside: avoid;
+          margin-bottom: 3rem;
+        }
+      }
     </style>
   <script type="importmap">
 {

@@ -3,7 +3,7 @@ import { SecurityReport } from '../types';
 import { 
   Shield, AlertTriangle, CheckCircle, XCircle, 
   DollarSign, TrendingUp, Activity, Lock,
-  FileText, ExternalLink, Globe, ShieldCheck, Loader, Info
+  FileText, ExternalLink, Globe, ShieldCheck, Loader, Info, Printer
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -46,7 +46,6 @@ const RiskLegendItem: React.FC<{ label: string; color: string; desc: string; isA
     <div 
         className={`h-1.5 w-full rounded-full transition-all duration-300 ${isActive ? color : 'bg-slate-700'} group-hover:bg-opacity-80 cursor-help`}
     />
-    {/* Tooltip */}
     <div className="absolute top-4 left-1/2 -translate-x-1/2 w-32 p-2 bg-slate-900 border border-slate-700 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 text-center">
        <div className={`text-[10px] font-bold mb-1 ${color.replace('bg-', 'text-')}`}>{label}</div>
        <div className="text-[9px] text-slate-400 leading-tight">{desc}</div>
@@ -75,7 +74,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
     { name: 'Low', value: report.vulnerabilities.filter(v => v.severity === 'LOW').length },
   ].filter(d => d.value > 0);
 
-  // Derive risk level from score to ensure consistency if LLM mismatches
   const deriveRiskLevel = (score: number) => {
       if (score >= 80) return 'LOW';
       if (score >= 60) return 'MEDIUM';
@@ -90,6 +88,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
       if (score >= 60) return 'text-yellow-500';
       if (score >= 40) return 'text-orange-500';
       return 'text-red-500';
+  };
+
+  const handlePrint = () => {
+    // 1. Focus the current window to help bypass iframe restrictions
+    window.focus();
+    
+    // 2. Wrap in a try-catch for better error handling in sandboxed environments
+    try {
+      // Small timeout to ensure layout shifts are settled and charts are ready
+      setTimeout(() => {
+        const printResult = window.print();
+        // window.print() is often void, but we check if we can detect failure
+      }, 300);
+    } catch (err) {
+      console.error("Native printing failed:", err);
+      alert("Printing is restricted in this sandboxed view. To export as PDF, please open TrustGate in 'Fullscreen' or a new tab, then try again.");
+    }
   };
 
   return (
@@ -107,9 +122,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
             <span className="text-slate-500 text-sm">{report.scanDate}</span>
           </p>
         </div>
-        <div className="flex gap-3">
-            <button className="px-4 py-2 bg-slate-800 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition" onClick={() => window.print()}>
-                Export PDF
+        <div className="flex gap-3 no-print">
+            <button 
+              className="px-4 py-2 bg-slate-800 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition flex items-center gap-2 group" 
+              onClick={handlePrint}
+              title="Export report to PDF"
+            >
+                <Printer className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" /> Export PDF
             </button>
             <button onClick={onReset} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-900/20">
             New Scan
@@ -119,8 +138,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
 
       {/* Top Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
-        {/* New Risk Card */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col justify-between relative shadow-sm hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
                 <div>
@@ -141,60 +158,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
                     {riskLevel} RISK
                 </div>
             </div>
-
             <div className="flex gap-1.5 mt-6 pt-4 border-t border-slate-700/50">
-                <RiskLegendItem 
-                    label="CRITICAL" 
-                    color="bg-red-500" 
-                    desc="Unsafe. Immediate remediation required." 
-                    isActive={riskLevel === 'CRITICAL'} 
-                />
-                <RiskLegendItem 
-                    label="HIGH" 
-                    color="bg-orange-500" 
-                    desc="Significant risks. Executive sign-off needed." 
-                    isActive={riskLevel === 'HIGH'}
-                />
-                <RiskLegendItem 
-                    label="MEDIUM" 
-                    color="bg-yellow-500" 
-                    desc="Acceptable with specific controls." 
-                    isActive={riskLevel === 'MEDIUM'}
-                />
-                <RiskLegendItem 
-                    label="LOW" 
-                    color="bg-green-500" 
-                    desc="Safe for production use." 
-                    isActive={riskLevel === 'LOW'}
-                />
+                <RiskLegendItem label="CRITICAL" color="bg-red-500" desc="Unsafe." isActive={riskLevel === 'CRITICAL'} />
+                <RiskLegendItem label="HIGH" color="bg-orange-500" desc="Significant risks." isActive={riskLevel === 'HIGH'} />
+                <RiskLegendItem label="MEDIUM" color="bg-yellow-500" desc="Acceptable with controls." isActive={riskLevel === 'MEDIUM'} />
+                <RiskLegendItem label="LOW" color="bg-green-500" desc="Safe for production." isActive={riskLevel === 'LOW'} />
             </div>
         </div>
 
-        <MetricCard 
-          title="Active Vulnerabilities" 
-          value={report.vulnerabilities.length} 
-          sub={`${report.vulnerabilities.filter(v => v.severity === 'CRITICAL').length} Critical`}
-          icon={AlertTriangle} 
-          color="text-orange-500" 
-        />
-        <MetricCard 
-          title="Compliance Score" 
-          value={`${report.compliance.filter(c => c.status === 'COMPLIANT').length}/${report.compliance.length}`} 
-          sub="Standards Met"
-          icon={FileText} 
-          color="text-blue-500" 
-        />
-        <MetricCard 
-          title="Est. Annual Cost" 
-          value={`$${(report.costAnalysis.annualMaintenance / 1000).toFixed(1)}k`} 
-          sub={`ROI Break-even: Month ${report.roiProjection.breakEvenMonth}`}
-          icon={DollarSign} 
-          color="text-green-500" 
-        />
+        <MetricCard title="Active Vulnerabilities" value={report.vulnerabilities.length} sub={`${report.vulnerabilities.filter(v => v.severity === 'CRITICAL').length} Critical`} icon={AlertTriangle} color="text-orange-500" />
+        <MetricCard title="Compliance Score" value={`${report.compliance.filter(c => c.status === 'COMPLIANT').length}/${report.compliance.length}`} sub="Standards Met" icon={FileText} color="text-blue-500" />
+        <MetricCard title="Est. Annual Cost" value={`$${(report.costAnalysis.annualMaintenance / 1000).toFixed(1)}k`} sub={`ROI Break-even: M${report.roiProjection.breakEvenMonth}`} icon={DollarSign} color="text-green-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Executive Summary */}
         <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col">
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-blue-400" /> Executive Summary
@@ -206,18 +183,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
                 <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
                     <h4 className="text-sm font-semibold text-slate-400 mb-2">Auth Assessment</h4>
                     <p className="text-white text-sm mb-2">{report.authAssessment.details}</p>
-                    <div className="flex flex-wrap gap-2">
-                         {report.authAssessment.weaknesses.map((w, i) => (
-                             <span key={i} className="text-xs px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded">
-                                 {w}
-                             </span>
-                         ))}
-                    </div>
                 </div>
                 <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
                     <h4 className="text-sm font-semibold text-slate-400 mb-2">Security Strengths</h4>
                     <ul className="text-sm text-green-400 space-y-1">
-                        {report.authAssessment.strengths.map((s, i) => (
+                        {report.authAssessment.strengths.slice(0, 3).map((s, i) => (
                             <li key={i} className="flex items-start gap-2">
                                 <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" /> {s}
                             </li>
@@ -229,44 +199,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
             <button
                 onClick={onGenerateDeepDive}
                 disabled={isGeneratingDeepDive}
-                className="mt-8 w-full group relative overflow-hidden rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-4 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-900/30"
+                className="mt-8 w-full group relative overflow-hidden rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-4 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-900/30 no-print"
             >
-                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-10 transition-opacity" />
                 <div className="flex items-center justify-center gap-3">
-                    {isGeneratingDeepDive ? (
-                        <Loader className="w-6 h-6 animate-spin text-white" />
-                    ) : (
-                        <ShieldCheck className="w-6 h-6 text-white" />
-                    )}
+                    {isGeneratingDeepDive ? <Loader className="w-6 h-6 animate-spin text-white" /> : <ShieldCheck className="w-6 h-6 text-white" />}
                     <span className="text-lg font-bold text-white tracking-wide">
-                        {isGeneratingDeepDive ? 'Analyzing MCP tools and generating technical report...' : '🔍 View Technical Deep-Dive Report for Developers & Security Engineers'}
+                        {isGeneratingDeepDive ? 'Analyzing tools...' : '🔍 View Technical Deep-Dive'}
                     </span>
                 </div>
             </button>
         </div>
 
-        {/* Vuln Chart */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col">
              <h3 className="text-lg font-bold text-white mb-4">Vulnerability Distribution</h3>
              <div className="flex-1 min-h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                        <Pie
-                            data={severityDistribution}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                        >
+                        <Pie data={severityDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                             {severityDistribution.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[entry.name.toUpperCase() as keyof typeof COLORS] || COLORS.SLATE} />
                             ))}
                         </Pie>
-                        <RechartsTooltip 
-                             contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
-                        />
+                        <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }} />
                         <Legend verticalAlign="bottom" height={36}/>
                     </PieChart>
                 </ResponsiveContainer>
@@ -274,57 +228,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
         </div>
       </div>
 
-      {/* Financials */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-400" /> Cost Breakdown (USD)
-                 </h3>
-                 <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={costData} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
-                            <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
-                            <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} />
-                            <RechartsTooltip 
-                                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Cost']}
-                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
-                                cursor={{fill: '#334155', opacity: 0.4}}
-                            />
-                            <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={32} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                 </div>
-            </div>
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-400" /> ROI Projection (%)
-                 </h3>
-                 <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={roiData}>
-                            <defs>
-                                <linearGradient id="colorRoi" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                            <XAxis dataKey="year" stroke="#94a3b8" />
-                            <YAxis stroke="#94a3b8" tickFormatter={(val) => `${val}%`} />
-                            <RechartsTooltip 
-                                formatter={(value: number) => [`${value}%`, 'ROI']}
-                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
-                            />
-                            <Area type="monotone" dataKey="roi" stroke="#22c55e" fillOpacity={1} fill="url(#colorRoi)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                 </div>
-            </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Detailed Findings - Vulnerabilities */}
           <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
              <div className="p-6 border-b border-slate-700 flex justify-between items-center">
                  <h3 className="text-lg font-bold text-white">Security Vulnerabilities</h3>
@@ -350,7 +254,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
                         </div>
                         <p className="text-slate-300 text-sm mb-3">{vuln.description}</p>
                         <div className="bg-slate-900/50 p-3 rounded border border-slate-700/50">
-                            <p className="text-slate-400 text-xs uppercase font-semibold mb-1">Remediation</p>
                             <p className="text-slate-300 text-sm">{vuln.remediation}</p>
                         </div>
                     </div>
@@ -358,64 +261,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ report, onReset, onGenerat
              </div>
           </div>
 
-          {/* Compliance & Sources Column */}
           <div className="space-y-8">
             <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden h-fit">
-                <div className="p-6 border-b border-slate-700">
-                  <h3 className="text-lg font-bold text-white">Compliance Audit</h3>
+              <div className="p-6 border-b border-slate-700">
+                <h3 className="text-lg font-bold text-white">Compliance Audit</h3>
               </div>
               <div className="p-6 space-y-6">
-                  {report.compliance.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-4">
-                          <div className="mt-1">
-                              {item.status === 'COMPLIANT' ? (
-                                  <CheckCircle className="w-6 h-6 text-green-500" />
-                              ) : item.status === 'NON_COMPLIANT' ? (
-                                  <XCircle className="w-6 h-6 text-red-500" />
-                              ) : (
-                                  <AlertTriangle className="w-6 h-6 text-yellow-500" />
-                              )}
-                          </div>
-                          <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="text-white font-semibold">{item.name}</h4>
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">
-                                      {item.status.replace('_', ' ')}
-                                  </span>
-                              </div>
-                              <p className="text-slate-400 text-sm">{item.details}</p>
-                          </div>
+                {report.compliance.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-4">
+                    <div className="mt-1">
+                      {item.status === 'COMPLIANT' ? <CheckCircle className="w-6 h-6 text-green-500" /> : item.status === 'NON_COMPLIANT' ? <XCircle className="w-6 h-6 text-red-500" /> : <AlertTriangle className="w-6 h-6 text-yellow-500" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-white font-semibold">{item.name}</h4>
                       </div>
-                  ))}
+                      <p className="text-slate-400 text-sm">{item.details}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-
-            {/* Analysis Sources */}
-            {report.sources && report.sources.length > 0 && (
-              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden h-fit">
-                  <div className="p-6 border-b border-slate-700 flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-blue-400" />
-                    <h3 className="text-lg font-bold text-white">Analysis Sources</h3>
-                  </div>
-                  <div className="p-4">
-                      <ul className="space-y-2">
-                        {report.sources.map((source, idx) => (
-                          <li key={idx}>
-                            <a 
-                              href={source} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors p-2 hover:bg-slate-750 rounded"
-                            >
-                              <ExternalLink className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{source}</span>
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                  </div>
-              </div>
-            )}
           </div>
       </div>
     </div>

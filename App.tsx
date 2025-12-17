@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Shield, Search, ArrowRight, LayoutDashboard, Terminal, AlertTriangle, RefreshCw, HelpCircle, Play, Sparkles, Github, FileText } from 'lucide-react';
+import { Shield, Search, ArrowRight, LayoutDashboard, Terminal, AlertTriangle, RefreshCw, HelpCircle, Play, Sparkles, Github, FileText, Activity } from 'lucide-react';
 import { analyzeMCPServer, generateDeepDiveReport } from './services/geminiService';
 import { SecurityReport, TechnicalDeepDiveData } from './types';
 import { ScanningOverlay } from './components/ScanningOverlay';
 import { Dashboard } from './components/Dashboard';
 import { TechnicalDeepDive } from './components/TechnicalDeepDive';
+import { runSecurityTests } from './tests/security.test';
+import { DiagnosticPanel } from './components/DiagnosticPanel';
+import { TestResult } from './utils/testRunner';
 
 type ErrorType = 'NOT_FOUND' | 'API_ERROR' | 'GENERIC' | null;
 
@@ -21,6 +24,10 @@ const App: React.FC = () => {
   const [deepDiveData, setDeepDiveData] = useState<TechnicalDeepDiveData | null>(null);
   const [view, setView] = useState<'EXECUTIVE' | 'TECHNICAL'>('EXECUTIVE');
 
+  // Diagnostics State
+  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+  const [isRunningTests, setIsRunningTests] = useState(false);
+
   const runScan = async (scanTarget: string, scanUrl: string) => {
     setIsScanning(true);
     setErrorType(null);
@@ -29,7 +36,6 @@ const App: React.FC = () => {
     setView('EXECUTIVE');
 
     try {
-      // Simulate minimum scan time for UX purposes (animations)
       const minScanTime = new Promise(resolve => setTimeout(resolve, 3000));
       const analysisPromise = analyzeMCPServer(scanTarget, scanUrl);
       
@@ -66,8 +72,6 @@ const App: React.FC = () => {
 
   const handleGenerateDeepDive = async () => {
     if (!report) return;
-    
-    // If we already have content, just switch views
     if (deepDiveData) {
       setView('TECHNICAL');
       return;
@@ -77,9 +81,7 @@ const App: React.FC = () => {
     try {
       const minAnalysisTime = new Promise(resolve => setTimeout(resolve, 6000));
       const deepDivePromise = generateDeepDiveReport(report.targetName, report.targetUrl, report.summary);
-      
       const [data] = await Promise.all([deepDivePromise, minAnalysisTime]);
-      
       setDeepDiveData(data);
       setView('TECHNICAL');
     } catch (err) {
@@ -97,16 +99,19 @@ const App: React.FC = () => {
     setView('EXECUTIVE');
   };
 
+  const handleRunDiagnostics = async () => {
+    setIsRunningTests(true);
+    const results = await runSecurityTests();
+    setTestResults(results);
+    setIsRunningTests(false);
+  };
+
   const retryScan = () => {
-     if (target) {
-       runScan(target, target);
-     }
+     if (target) runScan(target, target);
   };
 
   const trySuggestion = (suggestion: string) => {
     setTarget(suggestion);
-    // Use timeout to allow state update if needed, but here we run directly
-    // Running directly ensures we use the correct string even if state is pending
     runScan(suggestion, suggestion);
   };
 
@@ -117,9 +122,15 @@ const App: React.FC = () => {
         type={isGeneratingDeepDive ? 'TECHNICAL' : 'EXECUTIVE'}
       />
 
+      {testResults && (
+        <DiagnosticPanel 
+          results={testResults} 
+          onClose={() => setTestResults(null)} 
+        />
+      )}
+
       {!report && !isScanning && (
         <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden p-6 bg-slate-900">
-          {/* Background Decor */}
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
             <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl"></div>
@@ -133,9 +144,7 @@ const App: React.FC = () => {
                </div>
             </div>
             
-            <h1 className="text-5xl font-bold text-white tracking-tight mb-4">
-              TrustGate
-            </h1>
+            <h1 className="text-5xl font-bold text-white tracking-tight mb-4">TrustGate</h1>
             <p className="text-xl text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed">
               Enterprise-grade MCP server security vetting. 
               Comprehensive risk analysis, compliance auditing, and ROI projection in seconds.
@@ -176,7 +185,6 @@ const App: React.FC = () => {
                </button>
             </div>
 
-            {/* Error States */}
             {errorType === 'NOT_FOUND' && (
                <div className="animate-fade-in bg-slate-800/50 border border-orange-500/30 rounded-lg p-6 text-left max-w-lg mx-auto backdrop-blur-sm">
                    <div className="flex items-start gap-4">
@@ -186,10 +194,10 @@ const App: React.FC = () => {
                        <div>
                            <h3 className="text-lg font-bold text-white mb-2">MCP Server Not Found</h3>
                            <p className="text-slate-400 text-sm mb-4">
-                               We couldn't find a public MCP server matching "{target}". Please check the spelling or try one of these popular servers:
+                               We couldn't find a public MCP server matching "{target}".
                            </p>
                            <div className="flex flex-wrap gap-2">
-                               {suggestions.length > 0 ? suggestions.map((s) => (
+                               {suggestions.length > 0 && suggestions.map((s) => (
                                    <button 
                                       key={s} 
                                       onClick={() => trySuggestion(s)}
@@ -197,13 +205,7 @@ const App: React.FC = () => {
                                    >
                                        {s}
                                    </button>
-                               )) : (
-                                   <>
-                                     <button onClick={() => trySuggestion("filesystem")} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-blue-400 rounded-full text-xs font-mono border border-slate-600 transition-colors">filesystem</button>
-                                     <button onClick={() => trySuggestion("postgres")} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-blue-400 rounded-full text-xs font-mono border border-slate-600 transition-colors">postgres</button>
-                                     <button onClick={() => trySuggestion("github")} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-blue-400 rounded-full text-xs font-mono border border-slate-600 transition-colors">github</button>
-                                   </>
-                               )}
+                               ))}
                            </div>
                        </div>
                    </div>
@@ -218,13 +220,7 @@ const App: React.FC = () => {
                        </div>
                        <div>
                            <h3 className="text-lg font-bold text-white mb-2">Analysis Temporarily Unavailable</h3>
-                           <p className="text-slate-400 text-sm mb-4">
-                               Our security engine encountered an issue while processing your request. This is likely a temporary connection glitch.
-                           </p>
-                           <button 
-                              onClick={retryScan}
-                              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/30 rounded-lg transition-colors text-sm font-semibold"
-                           >
+                           <button onClick={retryScan} className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/30 rounded-lg transition-colors text-sm font-semibold">
                                <RefreshCw className="w-4 h-4" /> Retry Analysis
                            </button>
                        </div>
@@ -232,7 +228,6 @@ const App: React.FC = () => {
                </div>
             )}
 
-            {/* Footer Stats */}
             {!errorType && (
                 <div className="grid grid-cols-3 gap-8 text-slate-500 text-sm border-t border-slate-800 pt-8 mb-8">
                 <div className="flex flex-col items-center gap-2">
@@ -250,19 +245,22 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {/* License & Open Source Footer */}
-            <div className="flex items-center justify-center gap-6 text-xs text-slate-600 font-mono">
-              <span className="flex items-center gap-1.5">
-                <Github className="w-3 h-3" />
-                <span>Open Source</span>
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1.5">
-                <FileText className="w-3 h-3" />
-                <span>MIT License</span>
-              </span>
-              <span>•</span>
-              <span>© 2024 TrustGate</span>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center justify-center gap-6 text-xs text-slate-600 font-mono">
+                <span className="flex items-center gap-1.5"><Github className="w-3 h-3" /><span>Open Source</span></span>
+                <span>•</span>
+                <span className="flex items-center gap-1.5"><FileText className="w-3 h-3" /><span>MIT License</span></span>
+                <span>•</span>
+                <span>© 2024 TrustGate</span>
+              </div>
+              <button 
+                onClick={handleRunDiagnostics}
+                disabled={isRunningTests}
+                className="flex items-center gap-2 text-[10px] text-slate-500 hover:text-blue-400 transition-colors uppercase tracking-widest font-bold no-print"
+              >
+                <Activity className={`w-3 h-3 ${isRunningTests ? 'animate-pulse' : ''}`} />
+                {isRunningTests ? 'Running System Diagnostics...' : 'Run System Diagnostics'}
+              </button>
             </div>
           </div>
         </div>
@@ -270,15 +268,13 @@ const App: React.FC = () => {
 
       {report && (
         <div className="flex flex-col min-h-screen">
-          <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800">
+          <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800 no-print">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-center">
               <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 flex items-center gap-1 shadow-inner">
                 <button
                   onClick={() => setView('EXECUTIVE')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    view === 'EXECUTIVE' 
-                      ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    view === 'EXECUTIVE' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
@@ -288,16 +284,11 @@ const App: React.FC = () => {
                   onClick={() => deepDiveData && setView('TECHNICAL')}
                   disabled={!deepDiveData}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    view === 'TECHNICAL' 
-                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20' 
-                      : deepDiveData 
-                        ? 'text-slate-400 hover:text-white hover:bg-slate-800/50' 
-                        : 'text-slate-700 cursor-not-allowed'
+                    view === 'TECHNICAL' ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20' : deepDiveData ? 'text-slate-400 hover:text-white hover:bg-slate-800/50' : 'text-slate-700 cursor-not-allowed'
                   }`}
                 >
                   <Terminal className="w-4 h-4" />
                   Technical View
-                  {!deepDiveData && <span className="ml-2 text-[10px] bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-600 border border-slate-800/50 font-bold">LOCKED</span>}
                 </button>
               </div>
             </div>
@@ -305,19 +296,10 @@ const App: React.FC = () => {
 
           <div className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-8">
              {view === 'EXECUTIVE' && (
-                <Dashboard 
-                  report={report} 
-                  onReset={handleReset} 
-                  onGenerateDeepDive={handleGenerateDeepDive}
-                  isGeneratingDeepDive={isGeneratingDeepDive}
-                />
+                <Dashboard report={report} onReset={handleReset} onGenerateDeepDive={handleGenerateDeepDive} isGeneratingDeepDive={isGeneratingDeepDive} />
              )}
              {view === 'TECHNICAL' && deepDiveData && (
-                <TechnicalDeepDive
-                  data={deepDiveData}
-                  targetName={report.targetName}
-                  onBack={() => setView('EXECUTIVE')}
-                />
+                <TechnicalDeepDive data={deepDiveData} targetName={report.targetName} onBack={() => setView('EXECUTIVE')} />
              )}
           </div>
         </div>
